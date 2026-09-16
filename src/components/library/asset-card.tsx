@@ -81,13 +81,14 @@ export function AssetCard({ asset, canEdit }: { asset: AssetCardData; canEdit: b
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Label htmlFor="asset-title">Title</Label>
+                <Input id="asset-title" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Category</Label>
+                  <Label htmlFor="asset-category">Category</Label>
                   <select
+                    id="asset-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm"
@@ -98,8 +99,9 @@ export function AssetCard({ asset, canEdit }: { asset: AssetCardData; canEdit: b
                   </select>
                 </div>
                 <div>
-                  <Label>Confidentiality</Label>
+                  <Label htmlFor="asset-confidentiality">Confidentiality</Label>
                   <select
+                    id="asset-confidentiality"
                     value={confidentiality}
                     onChange={(e) => setConfidentiality(e.target.value)}
                     className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm"
@@ -110,8 +112,8 @@ export function AssetCard({ asset, canEdit }: { asset: AssetCardData; canEdit: b
                 </div>
               </div>
               <div>
-                <Label>Tags (comma separated)</Label>
-                <Input value={tags} onChange={(e) => setTags(e.target.value)} />
+                <Label htmlFor="asset-tags">Tags (comma separated)</Label>
+                <Input id="asset-tags" value={tags} onChange={(e) => setTags(e.target.value)} />
               </div>
             </div>
             <DialogFooter>

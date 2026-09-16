@@ -81,8 +81,9 @@ export function BrochureIntakeForm({ requestId, properties }: { requestId: strin
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Label>Existing property (optional)</Label>
+            <Label htmlFor="existingProperty">Existing property (optional)</Label>
             <select
+              id="existingProperty"
               value={propertyId}
               onChange={(e) => selectProperty(e.target.value)}
               className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm"
@@ -94,8 +95,9 @@ export function BrochureIntakeForm({ requestId, properties }: { requestId: strin
             </select>
           </div>
           <div>
-            <Label>Property type</Label>
+            <Label htmlFor="brochurePropertyType">Property type</Label>
             <select
+              id="brochurePropertyType"
               value={propertyType}
               onChange={(e) => setPropertyType(e.target.value)}
               className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm"
@@ -110,8 +112,9 @@ export function BrochureIntakeForm({ requestId, properties }: { requestId: strin
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {FACT_FIELDS.map((f) => (
             <div key={f.key} className={f.key === "keyInfo" || f.key === "location" ? "sm:col-span-2" : ""}>
-              <Label>{f.label}</Label>
+              <Label htmlFor={`fact-${f.key}`}>{f.label}</Label>
               <Input
+                id={`fact-${f.key}`}
                 value={facts[f.key] ?? ""}
                 onChange={(e) => setFacts((prev) => ({ ...prev, [f.key]: e.target.value }))}
               />
