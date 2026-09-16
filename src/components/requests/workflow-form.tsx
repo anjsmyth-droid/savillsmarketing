@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { cn, formatDate } from "@/lib/utils";
 import type { WorkflowField, WorkflowStep } from "@/lib/workflows/types";
+import { fieldVisible } from "@/lib/workflows/visibility";
 import { saveDraft, submitRequest, uploadRequestFile, deleteRequestFile } from "@/lib/requests/actions";
 
 type Values = Record<string, unknown>;
@@ -18,15 +19,6 @@ interface UploadedFile {
   id: string;
   filename: string;
   assetTypeTag: string;
-}
-
-function fieldVisible(field: WorkflowField, values: Values): boolean {
-  if (!field.showIf) return true;
-  const current = values[field.showIf.field];
-  if (field.showIf.truthy !== undefined) return field.showIf.truthy ? !!current : !current;
-  if (field.showIf.equals !== undefined) return current === field.showIf.equals;
-  if (field.showIf.in) return typeof current === "string" && field.showIf.in.includes(current);
-  return true;
 }
 
 function FieldInput({
