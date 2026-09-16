@@ -16,6 +16,9 @@ import { MarketingControls } from "@/components/requests/marketing-controls";
 import { CommentComposer } from "@/components/requests/comment-composer";
 import { FilesPanel } from "@/components/requests/files-panel";
 import { ApprovalsPanel } from "@/components/requests/approvals-panel";
+import { GenerateInsightButton } from "@/components/requests/generate-insight-button";
+import { insightConfigFor } from "@/lib/requests/ai-insight-config";
+import { ai } from "@/lib/ai";
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,6 +62,17 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   def?.steps.forEach((s) => s.fields.forEach((f) => { if (f.type !== "file-upload") fieldLabels.set(f.key, f.label); }));
 
   const visibleComments = request.comments.filter((c) => marketing || c.visibility === "REQUESTOR");
+
+  const briefGapCheck =
+    marketing && def
+      ? (await ai.generate<{ complete: boolean; missing: string[]; message: string }>({
+          task: "brief_gap_check",
+          context: { fields: values, requiredFields: def.requiredFields },
+        }))
+      : null;
+
+  const insightConfig = insightConfigFor(request.requestTypeKey);
+  const insightItem = request.contentItems.find((c) => c.kind === insightConfig?.task);
 
   const [marketingTeam, creativeTeam] = marketing
     ? await Promise.all([
@@ -170,6 +184,15 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </Card>
           )}
 
+          {briefGapCheck && (
+            <Card className={briefGapCheck.data.complete ? "border-success/30 bg-success-soft/30" : "border-warning/30 bg-warning-soft/30"}>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">AI brief check</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-foreground/90">{briefGapCheck.data.message}</CardContent>
+            </Card>
+          )}
+
           {marketing && (
             <Card>
               <CardHeader>
@@ -248,6 +271,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         </TabsContent>
 
         <TabsContent value="content" className="mt-5 space-y-4">
+          {marketing && insightConfig && !insightItem && (
+            <Card className="border-dashed">
+              <CardContent className="flex items-center justify-between py-4">
+                <div className="text-sm text-muted-foreground">No AI-assisted draft yet for this request type.</div>
+                <GenerateInsightButton requestId={request.id} label={insightConfig.label} />
+              </CardContent>
+            </Card>
+          )}
           {request.contentItems.length === 0 ? (
             <div className="rounded-lg border border-border py-12 text-center text-sm text-muted-foreground">
               No content drafted yet.
