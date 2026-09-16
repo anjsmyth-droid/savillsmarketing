@@ -1,0 +1,470 @@
+// Savills Marketing Hub — data model
+// SQLite is used for local MVP development. Every field/relation here is
+// designed to move to PostgreSQL (Prisma's Postgres connector) with only a
+// datasource change — see PRODUCTION_MIGRATION.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// People & org structure
+// ---------------------------------------------------------------------------
+
+enum RoleName {
+  STANDARD // Standard requestor (agents, support staff, etc.)
+  DIVISIONAL // Divisional user / director — broader visibility
+  MARKETING // Marketing team member
+  MARKETING_ADMIN // Full admin: workflows, permissions, knowledge base, reporting
+}
+
+model Department {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  isMarketingTeam Boolean @default(false)
+  isCreativeTeam  Boolean @default(false)
+  users    User[]
+  properties Property[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  role         RoleName @default(STANDARD)
+  jobTitle     String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  avatarColor  String   @default("#1E3A34")
+  initials     String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  requestsRaised      Request[]            @relation("Requestor")
+  requestsOwned       Request[]            @relation("MarketingOwner")
+  requestsCreativeOwned Request[]          @relation("CreativeOwner")
+  participations      RequestParticipant[]
+  comments            Comment[]
+  statusChanges       RequestStatusHistory[]
+  filesUploaded       File[]
+  assetsOwned         Asset[]              @relation("AssetMarketingOwner")
+  notifications       Notification[]
+  auditEvents         AuditEvent[]
+  approvalsRequested  Approval[]           @relation("ApprovalRequestedBy")
+  approvalsToDecide   Approval[]           @relation("ApprovalApprover")
+  contentVersions     ContentVersion[]
+  calendarItemsOwned  CalendarItem[]
+  campaignsOwned      Campaign[]
+}
+
+// ---------------------------------------------------------------------------
+// Reference / lookup data — admin-configurable
+// ---------------------------------------------------------------------------
+
+model RequestTypeDefinition {
+  id          String   @id @default(cuid())
+  key         String   @unique // matches workflow engine key, e.g. "property_pr"
+  label       String
+  description String
+  icon        String   @default("Sparkles")
+  category    String   @default("General")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  requests    Request[]
+}
+
+model ServiceLine {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model MediaOutlet {
+  id       String @id @default(cuid())
+  name     String
+  category String // National, Property/Trade, Broadcast, Regional
+  active   Boolean @default(true)
+}
+
+model AssetTypeDefinition {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model KnowledgeDocument {
+  id        String   @id @default(cuid())
+  title     String
+  category  String   // brand_guidelines, tone_of_voice, terminology, boilerplate, statistics, disclaimer, example_release, example_brochure, example_pitch, biography, service_description
+  body      String
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Core business entities
+// ---------------------------------------------------------------------------
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   @default("Vendor") // Vendor, Landlord, Developer, Tenant, Investor
+  sensitive Boolean  @default(false)
+  properties Property[]
+  requests  Request[]
+  createdAt DateTime @default(now())
+}
+
+model Property {
+  id           String   @id @default(cuid())
+  name         String
+  address      String
+  propertyType String   // Office, Industrial & Logistics, Retail, Investment, Development Land, Hotels, Residential, New Homes, Country Residential, Other
+  serviceLine  String?
+  tenure       String?
+  sizeSqFt     String?
+  askingPrice  String?
+  guidePrice   String?
+  rent         String?
+  ber          String?
+  url          String?
+  keyInfo      String?
+  location     String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  clientId     String?
+  client       Client? @relation(fields: [clientId], references: [id])
+  createdAt    DateTime @default(now())
+
+  requests Request[]
+  assets   Asset[]
+  brochureProjects BrochureProject[]
+  calendarItems CalendarItem[]
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  status    String   @default("Planning")
+  startDate DateTime?
+  endDate   DateTime?
+  ownerId   String?
+  owner     User? @relation(fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+
+  requests  Request[]
+  assets    Asset[]
+  calendarItems CalendarItem[]
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  BRIEF_REVIEW
+  IN_PROGRESS
+  DRAFT_READY
+  AWAITING_REQUESTOR
+  AWAITING_APPROVAL
+  SCHEDULED
+  COMPLETE
+}
+
+enum RequestPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+model Request {
+  id              String          @id @default(cuid())
+  title           String
+  requestTypeKey  String
+  requestType     RequestTypeDefinition @relation(fields: [requestTypeKey], references: [key])
+  status          RequestStatus   @default(DRAFT)
+  priority        RequestPriority @default(NORMAL)
+  confidential    Boolean         @default(false)
+
+  requestorId       String
+  requestor         User    @relation("Requestor", fields: [requestorId], references: [id])
+  marketingOwnerId  String?
+  marketingOwner    User?   @relation("MarketingOwner", fields: [marketingOwnerId], references: [id])
+  creativeOwnerId   String?
+  creativeOwner     User?   @relation("CreativeOwner", fields: [creativeOwnerId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  clientId   String?
+  client     Client?   @relation(fields: [clientId], references: [id])
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
+  formData    String   @default("{}") // JSON — workflow field values, schema defined per requestTypeKey
+  briefSummary String? // AI-generated brief summary for Marketing
+  requestedDueDate DateTime?
+  targetDate  DateTime?
+
+  submittedAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants   RequestParticipant[]
+  statusHistory  RequestStatusHistory[]
+  comments       Comment[]
+  files          File[]
+  approvals      Approval[]
+  contentItems   ContentItem[]
+  calendarItems  CalendarItem[]
+  brochureProject BrochureProject?
+  pitchProject    PitchProject?
+  assets         Asset[]
+
+  @@index([requestorId])
+  @@index([marketingOwnerId])
+  @@index([status])
+}
+
+enum ParticipantRole {
+  REQUESTOR
+  COLLABORATOR
+  WATCHER
+}
+
+model RequestParticipant {
+  id        String   @id @default(cuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      ParticipantRole @default(COLLABORATOR)
+  createdAt DateTime @default(now())
+
+  @@unique([requestId, userId])
+}
+
+model RequestStatusHistory {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fromStatus  RequestStatus?
+  toStatus    RequestStatus
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+enum CommentVisibility {
+  INTERNAL
+  REQUESTOR
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  requestId  String
+  request    Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  body       String
+  visibility CommentVisibility @default(REQUESTOR)
+  createdAt  DateTime @default(now())
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+model Approval {
+  id             String   @id @default(cuid())
+  requestId      String
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemLabel      String
+  requestedById  String
+  requestedBy    User     @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  approverId     String
+  approver       User     @relation("ApprovalApprover", fields: [approverId], references: [id])
+  status         ApprovalStatus @default(PENDING)
+  note           String?
+  decidedAt      DateTime?
+  createdAt      DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Files & Library
+// ---------------------------------------------------------------------------
+
+model File {
+  id            String   @id @default(cuid())
+  requestId     String?
+  request       Request? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+  filename      String
+  storageKey    String   // key/path understood by the active StorageProvider
+  mimeType      String
+  size          Int
+  assetTypeTag  String   @default("other") // hero_image, additional_photography, cgi_render, brochure, floorplan, map, headshot, existing_copy, technical_document, other
+  createdAt     DateTime @default(now())
+
+  asset Asset?
+}
+
+model Asset {
+  id               String   @id @default(cuid())
+  fileId           String   @unique
+  file             File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  title            String
+  category         String   // Properties, People, Photography, Brochures, PR, Pitches, Research, Events, Video, Brand Assets, Campaigns
+  confidentiality  String   @default("STANDARD") // STANDARD | CONFIDENTIAL
+  year             Int
+  serviceLine      String?
+  propertyId       String?
+  property         Property? @relation(fields: [propertyId], references: [id])
+  clientName       String?
+  campaignId       String?
+  campaign         Campaign? @relation(fields: [campaignId], references: [id])
+  requestId        String?
+  request          Request? @relation(fields: [requestId], references: [id])
+  marketingOwnerId String?
+  marketingOwner   User?    @relation("AssetMarketingOwner", fields: [marketingOwnerId], references: [id])
+  createdAt        DateTime @default(now())
+
+  tags AssetTag[]
+
+  @@index([category])
+}
+
+model AssetTag {
+  id      String @id @default(cuid())
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  tag     String
+
+  @@index([tag])
+}
+
+// ---------------------------------------------------------------------------
+// Content generation (PR drafts, brochure sections, pitch sections, etc.)
+// ---------------------------------------------------------------------------
+
+model ContentItem {
+  id        String   @id @default(cuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  kind      String   // press_release, editorial, social_copy, email_copy, op_ed_analysis, brochure_section, pitch_section
+  label     String
+  createdAt DateTime @default(now())
+
+  versions ContentVersion[]
+}
+
+model ContentVersion {
+  id            String   @id @default(cuid())
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  body          String
+  generatedByAI Boolean  @default(false)
+  status        String   @default("DRAFT") // DRAFT, APPROVED
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Brochure Studio & Pitch Studio
+// ---------------------------------------------------------------------------
+
+model BrochureProject {
+  id           String   @id @default(cuid())
+  requestId    String   @unique
+  request      Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  propertyId   String?
+  property     Property? @relation(fields: [propertyId], references: [id])
+  propertyType String
+  suppliedFacts String  @default("{}") // JSON of extracted/confirmed facts
+  missingInfo   String  @default("[]") // JSON array of missing-info strings
+  sections      String  @default("[]") // JSON array of {key,label,versions:[{body,generatedByAI,createdAt}]}
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PitchProject {
+  id                 String   @id @default(cuid())
+  requestId          String   @unique
+  request            Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  clientName         String?
+  opportunityName    String?
+  submissionDeadline DateTime?
+  analysis           String   @default("{}") // JSON: TenderAnalysis result
+  interviewAnswers   String   @default("{}") // JSON
+  structure          String   @default("[]") // JSON array of section headings
+  draftContent       String   @default("{}") // JSON: sectionKey -> body
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Calendar
+// ---------------------------------------------------------------------------
+
+model CalendarItem {
+  id            String   @id @default(cuid())
+  title         String
+  type          String   // PR Launch, Research, Event, Social, E-Campaign, Property Launch, Sponsorship, Internal, Thought Leadership
+  date          DateTime
+  endDate       DateTime?
+  status        String   @default("Planned")
+  divisionName  String?
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id])
+  requestId     String?
+  request       Request? @relation(fields: [requestId], references: [id])
+  propertyId    String?
+  property      Property? @relation(fields: [propertyId], references: [id])
+  campaignId    String?
+  campaign      Campaign? @relation(fields: [campaignId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String   // request.created, request.status_changed, file.uploaded, file.deleted, content.generated, approval.decided, permission.changed, request.completed, ...
+  entityType String
+  entityId   String
+  metadata   String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
