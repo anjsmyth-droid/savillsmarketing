@@ -10,6 +10,7 @@ import { storage } from "@/lib/storage";
 import { ai } from "@/lib/ai";
 import { recordAudit } from "@/lib/audit";
 import { notifyMany } from "@/lib/notifications";
+import { autoCaptureAsset } from "@/lib/library/asset-capture";
 
 async function assertParticipant(requestId: string, userId: string) {
   const request = await db.request.findUniqueOrThrow({ where: { id: requestId } });
@@ -80,8 +81,10 @@ export async function uploadRequestFile(formData: FormData) {
   });
 
   await recordAudit({ actorId: user.id, action: "file.uploaded", entityType: "File", entityId: saved.id, metadata: { requestId, filename: file.name } });
+  await autoCaptureAsset(saved.id).catch(() => undefined);
   revalidatePath(`/requests/${requestId}`);
   revalidatePath(`/requests/${requestId}/edit`);
+  revalidatePath("/library");
   return { id: saved.id, filename: saved.filename, assetTypeTag: saved.assetTypeTag };
 }
 
