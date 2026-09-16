@@ -15,6 +15,7 @@ import { statusProgressPercent } from "@/lib/status";
 import { MarketingControls } from "@/components/requests/marketing-controls";
 import { CommentComposer } from "@/components/requests/comment-composer";
 import { FilesPanel } from "@/components/requests/files-panel";
+import { ApprovalsPanel } from "@/components/requests/approvals-panel";
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -316,29 +317,25 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </div>
         </TabsContent>
 
-        <TabsContent value="approvals" className="mt-5 space-y-3">
-          {request.approvals.length === 0 ? (
-            <div className="rounded-lg border border-border py-12 text-center text-sm text-muted-foreground">
-              No approvals requested yet.
-            </div>
-          ) : (
-            request.approvals.map((a) => (
-              <Card key={a.id}>
-                <CardContent className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="font-medium">{a.itemLabel}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Requested from {a.approver.name} by {a.requestedBy.name} · {formatDateTime(a.createdAt)}
-                    </div>
-                    {a.note && <div className="mt-1 text-sm text-muted-foreground">&quot;{a.note}&quot;</div>}
-                  </div>
-                  <Badge variant={a.status === "APPROVED" ? "success" : a.status === "CHANGES_REQUESTED" ? "danger" : "warning"}>
-                    {a.status === "PENDING" ? "Pending" : a.status === "APPROVED" ? "Approved" : "Changes requested"}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))
-          )}
+        <TabsContent value="approvals" className="mt-5">
+          <ApprovalsPanel
+            requestId={request.id}
+            canRequest={marketing}
+            currentUserId={user.id}
+            potentialApprovers={[request.requestor, ...request.participants.map((p) => p.user)].filter(
+              (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i
+            )}
+            approvals={request.approvals.map((a) => ({
+              id: a.id,
+              itemLabel: a.itemLabel,
+              status: a.status,
+              note: a.note,
+              createdAt: a.createdAt.toISOString(),
+              approverId: a.approverId,
+              approverName: a.approver.name,
+              requestedByName: a.requestedBy.name,
+            }))}
+          />
         </TabsContent>
       </Tabs>
     </div>
