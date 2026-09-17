@@ -1,14 +1,25 @@
 import type { NextConfig } from "next";
 
+// Domains this dev server should trust when accessed through a
+// forwarded/proxied hostname rather than localhost — e.g. GitHub
+// Codespaces or Gitpod port forwarding. Dev-only; has no effect on
+// production builds.
+const forwardedDevOrigins = ["*.app.github.dev", "*.githubpreview.dev", "*.gitpod.io"];
+
 const nextConfig: NextConfig = {
   /* config options here */
 
-  // Allows the dev server to accept requests (including Server Actions)
-  // when accessed through a forwarded/proxied hostname rather than
-  // localhost — e.g. GitHub Codespaces or Gitpod port forwarding. Next.js
-  // otherwise rejects these as a cross-origin security measure. Dev-only;
-  // has no effect on production builds.
-  allowedDevOrigins: ["*.app.github.dev", "*.githubpreview.dev", "*.gitpod.io"],
+  // Covers cross-origin dev requests for assets/HMR.
+  allowedDevOrigins: forwardedDevOrigins,
+
+  experimental: {
+    // Covers the separate CSRF check Next.js runs specifically on Server
+    // Action requests — without this, submitting any form behind a
+    // forwarded origin fails with "Invalid Server Actions request."
+    serverActions: {
+      allowedOrigins: forwardedDevOrigins,
+    },
+  },
 };
 
 export default nextConfig;
