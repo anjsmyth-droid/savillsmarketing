@@ -2,9 +2,17 @@ import type { NextConfig } from "next";
 
 // Domains this dev server should trust when accessed through a
 // forwarded/proxied hostname rather than localhost — e.g. GitHub
-// Codespaces or Gitpod port forwarding. Dev-only; has no effect on
-// production builds.
-const forwardedDevOrigins = ["*.app.github.dev", "*.githubpreview.dev", "*.gitpod.io"];
+// Codespaces, Gitpod, or Replit's preview domains. Dev-only; has no
+// effect on production builds. The "**." prefix (vs "*.") matches any
+// number of subdomain labels, which Replit's preview hostnames need.
+const forwardedDevOrigins = [
+  "*.app.github.dev",
+  "*.githubpreview.dev",
+  "*.gitpod.io",
+  "**.replit.dev",
+  "**.repl.co",
+  "**.replit.app",
+];
 
 const nextConfig: NextConfig = {
   /* config options here */

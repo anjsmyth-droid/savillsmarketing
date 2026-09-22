@@ -1,0 +1,13 @@
+modules = ["nodejs-20"]
+run = "bash scripts/replit-start.sh"
+entrypoint = "src/app/page.tsx"
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[env]
+PORT = "3000"
